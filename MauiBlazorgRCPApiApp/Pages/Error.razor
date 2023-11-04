@@ -1,0 +1,15 @@
+﻿@page "/error"
+@inject NavigationManager NavManager
+@code {
+    public string message { get; set; }
+
+    protected override void OnInitialized()
+    {
+        var uri = new Uri(NavManager.Uri);
+        var queryParameters = System.Web.HttpUtility.ParseQueryString(uri.Query);
+        message = queryParameters["message"];
+    }
+}
+
+<h3>Error</h3>
+<p>Ha ocurrido un error: @message</p>

@@ -1,0 +1,350 @@
+﻿@page "/datagrid/{Opcion}"
+@* @page "/datagrid/{Opcion:int}"  Es la otra forma de hacerlo recibiendo el param como numero*@
+@using DataView2.Core.Models;
+@using Google.Protobuf.WellKnownTypes;
+@using MauiBlazorgRCPApiApp.Data;
+@using MauiBlazorgRCPApiApp.Models;
+@using MudBlazor;
+@using Newtonsoft.Json;
+@using MauiBlazorgRCPApiApp.Logic;
+@using AutoMapper;
+@using System.ComponentModel.DataAnnotations;
+
+@inject ISettingsService setting
+@inject IMapper Mapper
+@inject ISnackbar Snackbar
+
+<h3>Personas  <MudButton OnClick="Add" Variant="Variant.Outlined" EndIcon="@Icons.Material.Filled.Send" Color=" MudBlazor.Color.Primary">Agregar Persona</MudButton></h3>
+<style>
+    .mud-dialog-custom {
+        display: grid;
+        align-content: center;
+        justify-content: space-between;
+        justify-items: end;
+    }
+</style>
+<MudDataGrid Elevation="1" Items="@personas" T="PersonaDb" RowsPerPage="5">
+    <Columns>
+        <PropertyColumn Property="x => x.idPersona" Title="ID" />
+        <PropertyColumn Property="x => x.Nombres" Title="Nombre" />
+        <PropertyColumn Property="x => x.Apellidos" Title="Apellidos" />
+        <PropertyColumn Property="x => x.Email" Title="Email" />
+        <TemplateColumn CellClass="d-flex justify-end">
+            <CellTemplate>
+                <MudStack Row>
+                    <MudFab @onclick="@(()=>Edit(context.Item))" Color="Color.Primary" Icon="@Icons.Material.Filled.Edit" Size="Size.Small" IconSize="Size.Small" />
+                    <MudFab @onclick="@(()=>Delete(context.Item))" Color="Color.Error" Icon="@Icons.Material.Filled.Delete" Size="Size.Small" IconSize="Size.Small" />
+                </MudStack>
+            </CellTemplate>
+        </TemplateColumn>
+    </Columns>
+    <PagerContent>
+        <MudDataGridPager T="PersonaDb" PageSizeOptions=@(new int[] {5, 10, 20}) />
+    </PagerContent>
+</MudDataGrid>
+
+
+
+
+
+
+@code {
+    public List<PersonaDb> filteredPersonas { get; set; } = null!;
+    public List<PersonaDb> personas { get; set; } = null!;
+    public PersonaDb persona = new PersonaDb();
+    public string baseGRPCUrl = "http://localhost:5244/";
+    private readonly IMapper _mapper;
+    int currentPage = 1;
+    private bool _resizeColumn;
+    public string error;
+    [Inject] private IDialogService DialogService { get; set; }
+    [Inject] private NavigationManager NavigationManager { get; set; }
+    DialogOptions maxWidth = new DialogOptions() { MaxWidth = MaxWidth.Large, NoHeader = true };
+    //Opcion del Menu viene De URL
+    [Parameter]
+    public string Opcion { get; set; }
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            //var grpcService = new ClientgRPC(baseGRPCUrl);
+            if (Opcion == "1")
+            {
+                var client = new REST();
+                personas = await client.LoadPersonaDb();
+
+            }
+            else if (Opcion == "2")
+            {
+                //=> Usarla con protected async override void OnInitialized(){} Para Lista con datos Local
+
+                personas = await ObtenerPersonagRCPAsync();
+            }
+            else if (Opcion == "3")
+            {
+                personas = await ObtenerPersonaAsync();
+            }
+            //  personasH = JsonConvert.SerializeObject(personas);
+
+        }
+        catch (Exception ex)
+        {
+            NavigationManager.NavigateTo($"/error?message={Uri.EscapeDataString(ex.Message)}");
+        }
+    }
+
+    #region Menu CRUD
+
+    //Metodo para Adicionar Persona
+    async Task Add()
+    {
+        try
+        {
+            PersonaDb p = new PersonaDb();
+            var options = new DialogOptions { CloseOnEscapeKey = true, Position = DialogPosition.Center };
+            var parameters = new DialogParameters { { "PersonaToEdit", p }, { "Oper", "Add" } };
+            var dialog = DialogService.Show<PersonaDialog>(null, parameters, options);
+            var dialogResult = await dialog.Result;
+
+            if (dialogResult.Canceled == false && dialogResult.Data != null)
+            {
+                var newPersona = (PersonaDb)dialogResult.Data;
+                int index = 0;
+
+
+                switch (Opcion)
+                {
+                    case "1":
+                        var client = new REST();
+                        var res = await client.AddPersonaDb(p);
+                        index = Convert.ToInt32(res);
+                        newPersona.idPersona = index;
+                        personas.Add(newPersona);
+                        break;
+
+                    case "2":
+                        var resGRPC = await AddValuegRCP(p);
+                        var persona = Mapper.Map<PersonaDb>(resGRPC);
+                        index = Convert.ToInt32(persona.idPersona);
+                        newPersona.idPersona = index;
+                        personas.Add(newPersona);
+                        break;
+
+                    case "3":
+                        index = personas.OrderByDescending(p => p.idPersona).FirstOrDefault().idPersona + 1;
+                        newPersona.idPersona = index;
+                        personas.Add(newPersona);
+                        break;
+                }
+
+                // Refrescar la UI.
+                StateHasChanged();
+                Snackbar.Add("Persona Adicionada !");
+            }
+        }
+        catch (Exception ex)
+        {
+            // Utils.RegError($"Error when Add Person: {ex.Message}");
+            NavigationManager.NavigateTo($"/error?message={Uri.EscapeDataString(ex.Message)}");
+        }
+    }
+    //Metodo para Editar Persona
+    [Parameter]
+    public PersonaDb PersonaToEdit { get; set; }
+    async Task Edit(PersonaDb p)
+    {
+        try
+        {
+            var options = new DialogOptions { CloseOnEscapeKey = true, Position = DialogPosition.Center };
+            var parameters = new DialogParameters { { "PersonaToEdit", p }, { "Oper", "Edit" } };
+            // DialogService.Show<Dialogo>("Edit Person:", options);
+            var dialog = DialogService.Show<PersonaDialog>(null, parameters, options);
+            var dialogResult = await dialog.Result;
+            bool resBD = false;
+
+            if (dialogResult.Canceled == false && dialogResult.Data != null)
+            {
+                var editedPerson = (PersonaDb)dialogResult.Data;
+
+
+                switch (Opcion)
+                {
+                    case "1":
+                        var client = new REST();
+                        resBD = await client.UpdPersonaDb(editedPerson);
+                        break;
+                    case "2":
+                        resBD = await EditValuegRCP(editedPerson);
+                        break;
+                    case "3":
+                        resBD = true;
+                        break;
+                }
+                int index = personas.FindIndex(p => p.idPersona == editedPerson.idPersona);
+
+                // Reemplaza el objeto antiguo con el nuevo.
+
+                if (index != -1 && resBD == true)
+                {
+                    // throw new InvalidOperationException("Probando error => No hay conexión de red disponible.");
+
+                    personas[index] = editedPerson;
+                    // Refrescar la UI.
+                    StateHasChanged();
+                    Snackbar.Add("Persona Actualizada !");
+                }
+
+
+            }
+        }
+        catch (Exception ex)
+        {
+            // Utils.RegError($"Error when Edit Person: {ex.Message}");
+            NavigationManager.NavigateTo($"/error?message={Uri.EscapeDataString(ex.Message)}");
+        }
+    }
+
+    //Metodo para Borrar Persona
+    async Task Delete(PersonaDb p)
+    {
+        try
+        {
+            var options = new DialogOptions { CloseOnEscapeKey = true, Position = DialogPosition.Center };
+            var parameters = new DialogParameters { { "PersonaToEdit", p }, { "Oper", "Delete" } };
+            // DialogService.Show<Dialogo>("Edit Person:", options);
+            var dialog = DialogService.Show<PersonaDialog>(null, parameters, options);
+            var dialogResult = await dialog.Result;
+            bool resBD = false;
+
+            if (dialogResult.Canceled == false && dialogResult.Data != null)
+            {
+
+                switch (Opcion)
+                {
+                    case "1":
+                        var client = new REST();
+                        var res = await client.DelPersonaDb(p.idPersona);
+                        resBD = res;
+                        break;
+                    case "2":
+
+                        resBD = await DelValuegRCP(p.idPersona);
+                        break;
+
+                    case "3":
+
+                        resBD = true;
+                        break;
+                }
+
+                // Refrescar la UI.
+                if (resBD == true)
+                {
+                    personas.Remove(p);
+                    StateHasChanged();
+                    Snackbar.Add("Persona Borrada !");
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            // Utils.RegError($"Error when Delete Person: {ex.Message}");
+            NavigationManager.NavigateTo($"/error?message={Uri.EscapeDataString(ex.Message)}");
+        }
+    }
+    #endregion
+
+    //Data creada local:
+    public async Task<List<PersonaDb>> ObtenerPersonaAsync()
+    {
+        var resultado = new List<PersonaDb>();
+
+        for (int i = 1; i <= 100; i++)
+        {
+            resultado.Add(new PersonaDb
+                {
+                    idPersona = i,
+                    Nombres = Faker.Name.First(),
+                    Apellidos = Faker.Name.Last(),
+                    Email = Faker.Internet.Email()
+                });
+        }
+        return resultado;
+    }
+    #region  CRUD gRCP
+    //Data traida de gRCP:
+    public async Task<List<PersonaDb>> ObtenerPersonagRCPAsync()
+    {
+        var _personas = await setting.GetAll(new Empty());
+        var resultado = new List<PersonaDb>();
+        try
+        {
+            foreach (var persona in _personas)
+            {
+                if (persona != null)
+                {
+                    var personaDb = Mapper.Map<PersonaDb>(persona);
+                    resultado.Add(personaDb);
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            NavigationManager.NavigateTo($"/error?message={Uri.EscapeDataString(ex.Message)}");
+        }
+
+        return resultado;
+    }
+    public async Task<PersonaDb> AddValuegRCP(PersonaDb person)
+    {
+        PersonaDb personaDb = new PersonaDb();
+        try
+        {
+            var persona = Mapper.Map<Persona>(person);
+            var res = await setting.EditValue(persona);
+            personaDb = Mapper.Map<PersonaDb>(res);
+        }
+        catch (Exception ex)
+        {
+            NavigationManager.NavigateTo($"/error?message={Uri.EscapeDataString(ex.Message)}");
+        }
+        return personaDb;
+    }
+    public async Task<bool> EditValuegRCP(PersonaDb person)
+    {        
+        
+        try
+        {
+            var persona = Mapper.Map<Persona>(person);
+            var res = await setting.EditValue(persona);           
+        }
+        catch (Exception ex)
+        {
+            NavigationManager.NavigateTo($"/error?message={Uri.EscapeDataString(ex.Message)}");
+        }
+        return true;
+    }
+    public async Task<bool> DelValuegRCP(int idPersona)
+    {
+
+        try
+        {
+           
+            await setting.DelValue(idPersona.ToString());
+        }
+        catch (Exception ex)
+        {
+            NavigationManager.NavigateTo($"/error?message={Uri.EscapeDataString(ex.Message)}");
+        }
+        return true;
+    }
+    #endregion
+
+
+
+
+
+}
+
+

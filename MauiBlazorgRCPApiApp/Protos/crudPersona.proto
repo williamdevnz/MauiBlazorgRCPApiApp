@@ -1,0 +1,73 @@
+syntax = "proto3";
+
+option csharp_namespace = "MauiBlazorgRCPApiApp";
+
+package crudPersona;
+
+message Persona{
+     int32  idPersona =1;
+     string nombres =2;
+     string apellidos =3;
+     string email =4;
+}
+
+// La definición del servicio CRUD para Persona.
+service CrudPersona {
+    rpc SayHello (HelloRequest) returns (HelloReply);
+  
+    // Crea una nueva Persona.
+    rpc CreatePersona (CreatePersonaRequest) returns (Persona);
+
+    // Lee una Persona por su ID.
+    rpc ReadPersona (ReadPersonaRequest) returns (Persona);
+
+    // Actualiza una Persona por su ID.
+    rpc UpdatePersona (UpdatePersonaRequest) returns (Persona);
+
+    // Elimina una Persona por su ID.
+    rpc DeletePersona (DeletePersonaRequest) returns (Persona);
+
+    // Obtiene todas las Personas (por ejemplo, para listar).
+    rpc GetPersonas (CGetPersonaRequest) returns (CGetPersonaReplay);
+}
+
+// The request message containing the user's name.
+message HelloRequest {
+  string name = 1;
+}
+
+// The response message containing the greetings.
+message HelloReply {
+  string message = 1;
+}
+
+
+// Definimos un nuevo mensaje para la creación de una Persona.
+message CreatePersonaRequest {
+    Persona Persona = 1;
+}
+
+// Definimos un mensaje para la lectura de una Persona por su ID.
+message ReadPersonaRequest {
+    int32 idPersona = 1;
+}
+
+// Definimos un mensaje para la actualización de una Persona.
+message UpdatePersonaRequest {
+    int32 idPersona = 1;
+    Persona Persona = 2;
+}
+
+// Definimos un mensaje para la eliminación de una Persona por su ID.
+message DeletePersonaRequest {
+    int32 idPersona = 1;}
+
+
+message CGetPersonaRequest {}
+
+message CGetPersonaReplay {
+    repeated Persona Personas = 1;
+}
+
+
+

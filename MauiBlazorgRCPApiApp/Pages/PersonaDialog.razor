@@ -1,0 +1,151 @@
+﻿@page "/PersonaDialog"
+@using MauiBlazorgRCPApiApp.Data;
+@using MudBlazor;
+@using MauiBlazorgRCPApiApp.Models;
+@using System.ComponentModel.DataAnnotations;
+@inject IDialogService DialogService
+@inject IJSRuntime JSRuntime
+
+<style>
+    .mud-dialog-custom {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        width: 420px;
+        background-color: white;
+        border-radius: 10px;
+        box-shadow: 5px 5px 10px gray;
+        overflow-x: hidden;
+        height: 400px;
+    }
+
+    .mud-dialog-container {
+        justify-content: center; /* para centrar horizontalmente */
+    }
+
+    .mud-dialog-content {
+    }
+
+    .mud-dialog .mud-btn {
+        background-color: blue; /* Color de fondo */
+        color: white; /* Color del texto */
+    }
+
+        .mud-dialog .mud-btn:hover {
+            background-color: darkblue; /* Color de fondo al pasar el ratón */
+        }
+</style>
+<div>
+<MudDialog Class="mud-dialog-custom" Style="">
+    <DialogContent>
+        <label style="font-size:1rem; letter-spacing:.00938em;padding-bottom:4px;"> Edit Person:</label>
+        
+        <MudContainer Style="max-height: 600px;width:370px; overflow-y: scroll; overflow-x:hidden">
+            <EditForm Model="PersonaToEdit" OnValidSubmit="@Submit">
+                <DataAnnotationsValidator />
+                <MudCard Style="width:auto; ">
+                    <MudCardContent>
+                        <MudTextField Label="Nombres" @bind-Value="PersonaToEdit.Nombres" HelperText="Min. 3 characters" InputType="InputType.Text" />
+                        <ValidationMessage For="@(() => PersonaToEdit.Nombres)" />
+                        <MudTextField Label="Apellidos" @bind-Value="PersonaToEdit.Apellidos" HelperText="Min. 3 characters" InputType="InputType.Text" />
+                        <ValidationMessage For="@(() => PersonaToEdit.Apellidos)" />
+                        <MudTextField Label="Correo electrónico" @bind-Value="PersonaToEdit.Email" HelperText="Min. 8 characters" />
+                        <ValidationMessage For="@(() => PersonaToEdit.Email)" />                       
+                    </MudCardContent>
+                    <MudCardActions>
+                        <MudButton ButtonType="ButtonType.Submit" Variant="Variant.Filled" Color="@color" Class="ml-auto">@Oper</MudButton>
+                    </MudCardActions>
+                </MudCard>
+            </EditForm>
+        </MudContainer>
+    </DialogContent>   
+</MudDialog>
+</div>
+@* <div>
+<MudMessageBox @ref="mbox" Title="Warning" Class="@(_visible?"visible":"invisible")" CancelText="Cancel">
+    <MessageContent>
+        Deleting can <b><i>not</i></b> be undone!
+    </MessageContent>
+    <YesButton>
+        <MudButton Variant="Variant.Filled" Color="Color.Error" StartIcon="@Icons.Material.Filled.DeleteForever">Delete!</MudButton>
+    </YesButton>
+</MudMessageBox>
+</div> *@
+@* <script src="/js/actions.js"></script> *@
+@code {
+    [CascadingParameter] MudDialogInstance MudDialog { get; set; }
+
+    [Parameter]
+    public PersonaDb PersonaToEdit { get; set; } = new PersonaDb();
+    [Parameter]
+    public string Oper { get; set; }
+    private MudBlazor.Color color = MudBlazor.Color.Primary;
+    protected override void OnInitialized()
+    {
+        if (Oper != null) // Asumiendo que si Oper es nulo, es una inserción.
+        {
+            if (Oper == "Edit") // Suponiendo que idPersona es 0 para nuevas inserciones
+            {
+                color = MudBlazor.Color.Secondary; // Cambia a tu color deseado para inserciones
+            }
+            else if (Oper == "Delete")
+            {
+                color = MudBlazor.Color.Error; // Cambia a tu color deseado para ediciones
+            }
+        }
+        // Si necesitas añadir más lógica para otros tipos de operaciones, puedes expandir este bloque.
+    }
+
+    // private PersonaDb PersonaToEdit = new PersonaDb();
+    void Submit()
+    {
+        if (Oper == "Add" || Oper == "Edit")
+            MudDialog.Close(DialogResult.Ok(PersonaToEdit));
+        else
+            // OnButtonClicked();
+            OpenConfirmationDialog();
+    }
+
+    private async Task OpenConfirmationDialog()
+    {
+
+        bool? result = await DialogService.ShowMessageBox("Confirmar", "¿Estás seguro de que deseas borrar esta persona?", yesText: "Confirmar", cancelText: "Cancelar");
+        if (result == true)
+        {
+            MudDialog.Close(DialogResult.Ok(PersonaToEdit)); // Cierra el diálogo principal y devuelve la persona para borrar.
+        }
+    }
+    void Cancel() => MudDialog.Cancel();
+
+
+    MudMessageBox mbox { get; set; }
+
+    private bool _visible { get; set; } = false;
+    private void Show()
+    {
+        _visible = !_visible;
+    }
+    private async void OnButtonClicked()
+    {
+        Show();
+        bool? result = await mbox.Show();
+        if (result == true)
+        {
+            MudDialog.Close(DialogResult.Ok(PersonaToEdit)); // Cierra el diálogo principal y devuelve la persona para borrar.
+        }
+        else Show();
+    }
+    
+}
+<script>
+    var nameObj = 'mud-dialog-container';
+    var elemento = document.getElementsByClassName(nameObj);
+    var iddialog = elemento[0].getAttribute('id');
+    var element = document.getElementById(iddialog);
+    if (element) {
+        let windowWidth = window.innerWidth;
+        let centerPosition = (windowWidth) / 2;
+        element.style.width = `${centerPosition}px`;
+    }
+</script>

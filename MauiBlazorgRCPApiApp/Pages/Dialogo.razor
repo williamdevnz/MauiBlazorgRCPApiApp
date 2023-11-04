@@ -1,0 +1,83 @@
+﻿@page "/Dialogo"
+@using MudBlazor;
+@using MauiBlazorgRCPApiApp.Models;
+@using System.ComponentModel.DataAnnotations;
+@inject ISnackbar Snackbar
+@inject IJSRuntime JSRuntime
+
+<style>
+    .mud-dialog-custom {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        width:420px;
+        background-color: lightblue;
+        border-radius: 10px;
+        box-shadow: 5px 5px 10px gray;
+        /* padding-right:20%; */
+    }
+
+    .mud-dialog-container {
+        justify-content: center; /* para centrar horizontalmente */
+    }
+    .mud-dialog-content {
+        
+      
+    }
+</style>
+<MudDialog Class="mud-dialog-custom" Style="">
+    <DialogContent >
+        <MudContainer Style="max-height: 600px;width:370px; overflow-y: scroll; overflow-x:hidden">
+            <EditForm Model="personalInfo" OnValidSubmit="@Submit">
+                <DataAnnotationsValidator />
+                @* <ValidationSummary /> *@
+                <MudCard Style="width:auto;" >
+                    <MudCardContent>
+                        <MudTextField Label="Correo electrónico" @bind-Value="personalInfo.Email" HelperText="Max. 8 characters" />
+                        <ValidationMessage For="@(() => personalInfo.Email)" />
+                        <MudTextField Label="Contraseña" @bind-Value="personalInfo.Password" InputType="InputType.Password" />
+                        <ValidationMessage For="@(() => personalInfo.Password)" />
+                    </MudCardContent>
+                    <MudCardActions>
+                        <MudButton ButtonType="ButtonType.Submit" Variant="Variant.Filled" Color="Color.Primary" Class="ml-auto">Register</MudButton>
+                    </MudCardActions>
+                </MudCard>
+            </EditForm>
+        </MudContainer>
+    </DialogContent>
+     <DialogActions>
+    <MudButton OnClick="callJS" Variant="Variant.Filled">Imprimir</MudButton>
+    </DialogActions>
+</MudDialog>
+<script src="/js/actions.js"></script>
+@code {
+    [CascadingParameter] MudDialogInstance MudDialog { get; set; }
+
+    private PersonalInfo personalInfo = new PersonalInfo();
+    void Submit()
+    {
+        Snackbar.Add("Formulario Remoto enviado.");
+        MudDialog.Close(DialogResult.Ok(true));
+    }
+    void Cancel() => MudDialog.Cancel();  
+   
+   
+    private async void callJS()
+    {
+       // await JSRuntime.InvokeVoidAsync("centerWindow", "mud-dialog-container");
+        await JSRuntime.InvokeVoidAsync("Saludo", "Hello, Willy!");
+     
+    }   
+}
+<script>
+    var nameObj = 'mud-dialog-container';
+    var elemento = document.getElementsByClassName(nameObj);
+    var iddialog = elemento[0].getAttribute('id');
+    var element = document.getElementById(iddialog);
+    if (element) {
+        let windowWidth = window.innerWidth;
+        let centerPosition = (windowWidth) / 2;
+        element.style.width = `${centerPosition}px`;
+    }
+</script>
